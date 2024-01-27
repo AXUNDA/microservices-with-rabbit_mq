@@ -1,5 +1,6 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const axios = require("axios").default;
 
 const { APP_SECRET } = require("../config");
 
@@ -48,4 +49,8 @@ module.exports.FormateData = (data) => {
   } else {
     throw new Error("Data Not found!");
   }
+};
+
+exports.PublishCustomerEvent = async (payload) => {
+  axios.post("http://localhost:8000/cutomer/app-events" ser);
 };
