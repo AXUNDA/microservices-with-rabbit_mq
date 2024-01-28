@@ -52,5 +52,9 @@ module.exports.FormateData = (data) => {
 };
 
 exports.PublishCustomerEvent = async (payload) => {
-  axios.post("http://localhost:8000/cutomer/app-events" ser);
+  axios.post("http://localhost:8000/cutomer/app-events", { payload });
+};
+
+exports.PublishShoppingEvent = async () => {
+  axios.post("http://localhost:8000/shopping/app-events", { payload });
 };
