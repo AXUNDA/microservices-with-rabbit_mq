@@ -4,6 +4,7 @@ const {
   BadRequestError,
   STATUS_CODES,
 } = require("../../utils/app-errors");
+const uuid = require("uuid");
 
 //Dealing with data base operations
 class CustomerRepository {
@@ -144,53 +145,81 @@ class CustomerRepository {
     }
   }
 
-  async AddCartItem(customerId, { _id, name, banner, price }, qty, isRemove) {
-    try {
-      const profile = await CustomerModel.findById(customerId).populate("cart");
+  async AddCartItem(customerId, item, qty, isRemove) {
+    // return await CartModel.deleteMany();
 
-      if (profile) {
-        const cartItem = {
-          product: { _id, name, banner, price },
-          unit: qty,
-        };
+    const cart = await CartModel.findOne({ customerId: customerId });
 
-        let cartItems = profile.cart;
+    const { _id } = item;
 
-        if (cartItems.length > 0) {
-          let isExist = false;
-          cartItems.map((item) => {
-            if (item.product._id.toString() === product._id.toString()) {
-              if (isRemove) {
-                cartItems.splice(cartItems.indexOf(item), 1);
-              } else {
-                item.unit = qty;
-              }
-              isExist = true;
+    if (cart) {
+      let isExist = false;
+
+      let cartItems = cart.items;
+
+      if (cartItems.length > 0) {
+        cartItems.map((item) => {
+          if (item.product._id.toString() === _id.toString()) {
+            if (isRemove) {
+              cartItems.splice(cartItems.indexOf(item), 1);
+            } else {
+              item.unit = qty;
             }
-          });
-
-          if (!isExist) {
-            cartItems.push(cartItem);
+            isExist = true;
           }
-        } else {
-          cartItems.push(cartItem);
-        }
-
-        profile.cart = cartItems;
-
-        const cartSaveResult = await profile.save();
-
-        return cartSaveResult;
+        });
       }
 
-      throw new Error("Unable to add to cart!");
-    } catch (err) {
-      throw new APIError(
-        "API Error",
-        STATUS_CODES.INTERNAL_ERROR,
-        "Unable to Create Customer"
-      );
+      if (!isExist && !isRemove) {
+        cartItems.push({ product: { ...item }, unit: qty });
+      }
+
+      cart.items = cartItems;
+
+      return await cart.save();
+    } else {
+      return await CartModel.create({
+        customerId,
+        items: [{ product: { ...item }, unit: qty }],
+      });
     }
+  }
+  async CreateNewOrder(customerId, txnId) {
+    //required to verify payment through TxnId
+
+    const cart = await CartModel.findOne({ customerId: customerId });
+
+    if (cart) {
+      let amount = 0;
+
+      let cartItems = cart.items;
+
+      if (cartItems.length > 0) {
+        //process Order
+
+        cartItems.map((item) => {
+          amount += parseInt(item.product.price) * parseInt(item.unit);
+        });
+
+        const orderId = uuidv4();
+
+        const order = new OrderModel({
+          orderId,
+          customerId,
+          amount,
+          status: "received",
+          items: cartItems,
+        });
+
+        cart.items = [];
+
+        const orderResult = await order.save();
+        await cart.save();
+        return orderResult;
+      }
+    }
+
+    return {};
   }
 
   async AddOrderToProfile(customerId, order) {
